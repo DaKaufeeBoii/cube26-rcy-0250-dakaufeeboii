@@ -1,321 +1,151 @@
-# Cube Buildathon · 05 · Recovery Manager
-
-**Commerce Context stream · Round 2 · Individual Build**
-
-> Five agents, one unit, one record that follows it.
-> A physical product arrives, gets prepped, gets shipped, comes back. At every step a person makes a fast judgment that nobody records. **You build the agent that makes one of those judgments, and leaves proof.**
-
-**New here? Read these first:**
-
-1. [`GITHUB-GUIDE.md`](GITHUB-GUIDE.md) explains how to fork the repository, set it up, build and push your work.
-2. [`RULES.md`](RULES.md) covers the repository and engineering rules.
+# AI Recovery Manager — Turn Evidence into Financial Recovery
+**CUBE Buildathon • Track #5: Recovery Manager (RCY #5)**
+*Presented by Sydon.ai x Codequesters*
 
 ---
 
-## Your problem statement: Recovery Manager
+## 📋 Table of Contents
+1. [Problem Understanding](#-problem-understanding)
+2. [Solution Overview](#-solution-overview)
+3. [Setup Instructions](#-setup-instructions)
+4. [Usage Instructions](#-usage-instructions)
+5. [Assumptions & Limitations](#-assumptions--limitations)
+6. [Canonical Test Scenarios & Verification](#-canonical-test-scenarios--verification)
+7. [System Architecture Summary](#-system-architecture-summary)
 
-|                              |                                                          |
-| ---------------------------- | -------------------------------------------------------- |
-| **Position in the chain**    | Step 5 of 5. Money back. This step has no camera.        |
-| **Customer**                 | Anyone being charged fees they do not owe                |
-| **What gets recorded**       | Claim filed                                              |
-| **Who consumes your output** | The seller, and whoever reviews the claim at the channel |
+---
 
-Amazon charges inbound defect fees, loses units, damages inventory and mis-weighs parcels. Sellers are owed reimbursements they never claim, and charged fees they cannot contest, because contesting requires evidence and they have none. Today this is done by hand, by agencies taking a percentage, or not at all.
+## 🎯 Problem Understanding
 
-**This is not a vision agent.** No camera, no capture surface. It reads the evidence records the other four Managers produce, matches them against channel fee and reimbursement reports, and assembles a claim.
+Ecommerce operators and brand sellers receive dozens of unexpected fee adjustments, chargebacks, and penalties from platforms and 3PL fulfillment networks (e.g. Amazon FBA inbound defect fees, unplanned prep charges, barcode scannability penalties, dimensional weight variances, and damaged inventory assessments).
 
-* Ingest a fee or reimbursement report and parse the charges
-* Match each charge to the unit evidence covering it
-* Decide whether the evidence contradicts the charge, supports it, or is insufficient
-* Assemble a disputable claim with evidence attached and a dollar figure
-* State explicitly what it cannot claim, and why
+### The Core Dilemma:
+- **Delayed Invoicing**: Fees typically appear weeks after the operational event occurred.
+- **Fragmented Operational Records**: By the time a fee appears on a settlement statement, operational proof is scattered across disparate departments (Receiving dock logs, Prep bubblewrap/polybag scans, Pack conveyor scale logs, Shipping carrier manifests, and Returns grading records).
+- **The Recovery Challenge**: Operators either absorb legitimate dispute opportunities due to missing evidence or risk account suspension by filing unsubstantiated or hallucinated disputes.
 
-> **Build against the official evidence contract.** Recovery depends on the evidence produced by the other four Managers. For Round 2, use the evidence contract provided by the organisers as the baseline rather than creating a separate cross-pod contract.
+### Key Rules & Constraints from Specification:
+- **No Image Capture / No Vision Agent**: Recovery Manager works purely with structured records, telemetry, metadata, inspection logs, and sensor timestamps.
+- **Strict Anti-Hallucination Guardrail**: *Do not invent evidence.* If available records do not support a claim, the only valid conclusion is:
+  > **`SILENT — insufficient evidence`**
+- **Conservative Decision-Making**: *`UNCERTAIN` is a valid outcome.* When evidence is ambiguous or conflicting, the agent must not force a conclusion. Defensibility takes priority over claim volume.
 
-> **Your eval is different.** Others measure a model against human labels on units. You measure claim correctness on charges, and you report precision, because a wrongly filed claim costs a seller standing with the channel while a missed one costs only money.
+---
 
-### The chain you are part of
+## 💡 Solution Overview
 
-```text
- Supplier delivery      Inbound to Amazon     Outbound to buyer     Customer return        Money back
- ┌──────────────┐      ┌──────────────┐      ┌──────────────┐      ┌──────────────┐      ┌──────────────┐
- │ 01 Receiving │ ───▶ │ 02 Prep      │ ───▶ │ 03 Pack      │ ───▶ │ 04 Returns   │      │ 05 Recovery  │
- │ condition on │      │ compliance   │      │ contents at  │      │ condition &  │      │ reads all    │
- │ arrival      │      │ proof        │      │ seal         │      │ disposition  │      │ four → claim │
- └──────┬───────┘      └──────┬───────┘      └──────┬───────┘      └──────┬───────┘      └──────▲───────┘
-        └─────────────────────┴─────────────────────┴─────────────────────┴─────────────────────┘
+The **AI Recovery Manager** is an autonomous evidence-to-recovery reasoning agent that ingests fee reports, resolves identifiers, queries multi-manager operational stores, and applies a strict 10-step decision pipeline:
+
+```mermaid
+graph TD
+    A["1. Fee / Reimbursement Report Ingestion<br/>(CSV / JSON)"] --> B["2. Charge Parsing & Feature Extraction"]
+    B --> C["3. Identifier Linkage<br/>(Shipment, Order, SKU, Unit)"]
+    C --> D["4. Evidence Store Multi-Index Retrieval<br/>(Receiving, Prep, Pack, Shipping, Returns)"]
+    D --> E["5. Cross-Record & Temporal Matching Engine"]
+    E --> F{"6. Evidence Classification Matrix"}
+    F -->|Contradicts Charge| G["7. Assemble Defensible Claim"]
+    F -->|Supports Charge| H["Legitimate Fee: SUPPORTED (No Claim)"]
+    F -->|Missing Record| I["SILENT: Insufficient Evidence (No Guess)"]
+    F -->|Conflicting Signals| J["UNCERTAIN: Inconclusive / Escalation"]
+    F -->|Duplicate Line Item| K["DUPLICATE: Claim Full Duplicate"]
+    F -->|Prior Concession Found| L["ALREADY_REIMBURSED: Resolved"]
+    G --> M["8. Attach Traceable Operational Proof"]
+    M --> N["9. Calculate Net Recoverable Claim"]
+    N --> O["10. Generate Defensible Dispute Dossier & Platform Letter"]
 ```
 
-The first four are the same machine: a camera, a model, and a decision bound to a record. What changes is the ruleset, the buyer and the moment. The fifth has no camera. It turns the other four's records into a claim.
-
-Your output has to be usable by another pod. That's deliberate, and it's scored.
-
----
-
-## Reference data
-
-`data/` holds a **dummy** CSV for reference while you design and build. Its columns and meanings are listed in [`data/README.md`](data/README.md).
-
-**The data is synthetic.** The SKUs, ASINs, FNSKUs, orders, suppliers, operators and amounts are all invented. The requirement flags and fee amounts are **not** Amazon's real rules or fees. Engineering rule 5 applies: look the authoritative rule up. The `photo_refs` paths are placeholders, and no images ship with this repo. Your fixtures and eval set are yours to capture.
-
-All five buildathon repos share the same `unit_id` values (`UNIT-0001` … `UNIT-0100`). You can follow one unit from receiving through recovery, the same way the real records will be joined. In the sample, each unit takes one route: **FBA** (prep, then Amazon ships it and charges fees) or **merchant-fulfilled / 3PL** (the seller packs it). So a unit has a Prep record or a Pack record, never both.
-
-Recovery also gets `data/upstream/`, a copy of the other four files, so you can practise the join before Round 3 integration.
+### Key Solution Highlights:
+1. **Multi-Manager Operational Evidence Store**: Ingests and indexes operational logs across Receiving, Prep, Pack, Shipping, and Returns managers.
+2. **Defensible Dispute Generator**: Automatically crafts formal, copy-paste dispute filing letters for Amazon Seller Support / Carrier Claims with complete audit trails.
+3. **Duplicate & Concession Reconciler**: Discovers duplicate charges on the same shipment and cross-references against past reimbursements to prevent double-claiming.
+4. **Rich Dual Interface**:
+   - **Modern Interactive Web Dashboard**: Dark-mode fintech UI with real-time financial KPI cards, scenario switchers, and visual evidence flow.
+   - **Python CLI Tool**: Scriptable terminal runner for batch file processing and automated CI/CD benchmarks.
 
 ---
 
-## How this works
+## 🛠️ Setup Instructions
 
-You have a defined problem statement, supporting domain information and an engineering repository to build from. Understand the customer and operational workflow before writing code, then build and measure whether the solution works.
+### Prerequisites
+- Python 3.10+ (tested on Python 3.14)
+- Pip package manager
+- Web browser (Chrome, Edge, Firefox)
 
-Your goal is to turn the Recovery Manager problem into a working, measurable agent.
+### Installation
+Clone the repository and install dependencies:
+```bash
+git clone <your-forked-repo-url>
+cd CUBE
+python -m pip install -r requirements.txt
+```
+*(Dependencies: `fastapi`, `uvicorn`, `pydantic`, `rich`, `pytest`)*
 
-### What you're given
+---
 
-* This problem statement
-* A domain brief covering the real economics, fee structures and what a working day in a warehouse looks like *(shared by the organisers)*
-* The engineering rules in [`RULES.md`](RULES.md)
-* Repository data and supporting resources
-* One fully worked package for Returns Manager (customer letter, PR/FAQ, one-pager) as a reference for the standard expected. **Read it. Don't copy it.**
+## 🚀 Usage Instructions
 
-### What you produce
+### 1. Launch the Interactive Web Dashboard
+```bash
+python server.py
+```
+Open **[http://127.0.0.1:8000](http://127.0.0.1:8000)** in your browser.
+- **Scenario Carousel**: Click any of the 8 pre-loaded benchmark scenarios to see instant evidence matching and reasoning.
+- **Evidence Audit Trail**: Click on any charge to view the timeline, operational sensor telemetry, and reasoning.
+- **Copy Dispute Letter**: Click the button on any actionable charge to copy a formal dispute letter.
+- **Export Dossier**: Export the complete analysis as a structured Markdown dossier.
+- **Custom Ingestion**: Click "Custom Ingestion" to paste or upload custom fee reports, operational logs, and reimbursement credits.
 
-Build your solution in **your own GitHub fork**.
-
-Your final Round 2 submission should include:
-
-* A working Recovery Manager
-* A `README.md` explaining your solution, setup, assumptions and limitations
-* An `ARCHITECTURE.md`
-* An eval report/results with numbers and named failure modes
-* A working demo/video
-* A deployment URL, where applicable
-* Your mandatory LinkedIn post URL
-
-## Build and submission flow
-
-```text
-Understand
-    ↓
-Build
-    ↓
-Test
-    ↓
-Evaluate
-    ↓
-Document
-    ↓
-Demo / Deploy
-    ↓
-Submit
+### 2. Run Terminal CLI Benchmark
+Execute all 8 benchmark scenarios and print formatted executive tables:
+```bash
+python cli.py run-scenarios
 ```
 
-Round 2 is an **individual build**.
-
-The official build phase begins on **25 September 2026 at 9:00 AM IST**.
-
-Submissions open from **27 September 2026**.
-
-The final submission deadline is **1 October 2026 at 6:00 PM IST**.
-
-The submission form closes permanently at the deadline. **There is no resubmission.**
-
-All code commits forming your Round 2 submission must be made during the authorised build phase. Do not continue making Round 2 code changes after the build phase ends.
-
----
-
-## Evaluation
-
-Recovery Manager is evaluated differently from the vision-based Managers.
-
-The primary question is:
-
-> **When Recovery Manager recommends a claim, is that claim actually supported by the available evidence?**
-
-Your evaluation should focus on:
-
-* charge/report parsing,
-* charge-to-unit matching,
-* upstream evidence matching,
-* evidence interpretation,
-* claim correctness,
-* claim precision,
-* uncertainty/review handling,
-* false claims and missed recoverable claims,
-* important failure modes.
-
-Report the methodology clearly.
-
-### Primary metric
-
-```text
-Claim Precision
-=
-Correctly Supported Claims
---------------------------
-All Claims Recommended
+### 3. Analyze Custom Reports via CLI
+```bash
+python cli.py analyze \
+  --fees data/sample_fees.json \
+  --evidence data/sample_evidence.json \
+  --reimbursements data/sample_reimbursements.json \
+  --output dispute_dossier.md
 ```
 
-Where measurable, also report:
-
-* total charges evaluated,
-* claims recommended,
-* correctly supported claims,
-* incorrectly recommended claims,
-* missed recoverable claims,
-* `UNCERTAIN` / review rate,
-* latency/cost where relevant.
-
----
-
-## Round 2 Evaluation — 100 Points
-
-| Criterion                                    |  Points |
-| -------------------------------------------- | ------: |
-| Problem Understanding & Solution Relevance   |  **15** |
-| Agent Functionality & Decision Quality       |  **25** |
-| Evaluation, Accuracy & Uncertainty Handling  |  **25** |
-| Evidence, Traceability & Engineering Quality |  **20** |
-| UX, Demo & Documentation                     |  **15** |
-| **TOTAL**                                    | **100** |
-
-For Recovery Manager, the evaluation focus is on **claim correctness and evidence quality**, not image-level accuracy.
-
----
-
-## Evidence and decision traceability
-
-Your Recovery Manager should make the claim traceable to the evidence that supports it.
-
-At minimum, the workflow should make it possible to understand:
-
-```text
-Charge
-   ↓
-Unit
-   ↓
-Upstream Evidence
-   ↓
-Evidence Interpretation
-   ↓
-Claim Decision
-   ↓
-Supporting Evidence
+### 4. Run Automated Pytest Suite
+```bash
+python -m pytest tests/ -v
 ```
 
-Use the official evidence contract provided by the organisers as the baseline for interoperability.
+---
 
-Do not create a separate negotiated evidence schema for Round 2.
+## ⚖️ Assumptions & Limitations
+
+### Assumptions
+1. **Structured Telemetry**: Upstream managers (Receiving, Prep, Pack, Shipping, Returns) record operational activities with structured status codes (`PASS`, `FAIL`, `COMPLIANT`, `INTACT`) and timestamps.
+2. **Traceable Identifiers**: Fee line items contain at least one trackable identifier (`shipment_id`, `order_id`, `sku`, or `unit_id`).
+3. **Chronology**: Evidence recorded prior to carrier dispatch establishes condition at the time of fulfillment.
+
+### Limitations
+1. **Non-Vision Scope**: The system does not perform computer vision on images directly; it verifies structured image metadata, cryptographic file hashes, and inspection logs.
+2. **Platform Specifics**: Formal dispute letter formats are tailored for Amazon Seller Support and major ecommerce 3PLs; carrier-specific claims (e.g. UPS/FedEx national accounts) may require customized claim forms.
+3. **Offline Human Escalation**: When records are ambiguous (`UNCERTAIN`), the engine deliberately halts automated filing and flags the discrepancy for manual supervisor review.
 
 ---
 
-## PASS · FAIL · UNCERTAIN
+## 🧪 Canonical Test Scenarios & Verification
 
-For upstream checks and evidence states:
-
-* **PASS** — the evidence supports the condition.
-* **FAIL** — the evidence shows the condition is not met.
-* **UNCERTAIN** — the evidence is insufficient for a reliable judgment.
-
-`UNCERTAIN` is not simply a low-confidence PASS.
-
-For Recovery, missing, contradictory or insufficient evidence should lead to an appropriate review/uncertain outcome rather than an unsupported claim.
-
----
-
-## Engineering expectations
-
-* **Tenancy isolation:** If you store persistent data, keep organisation/client data properly isolated.
-* **Batch model calls:** Avoid unnecessary repeated model calls.
-* **Fail open:** A model or dependency failure should not silently discard incoming information. Preserve the available information and move the case into an appropriate pending/review state.
-* **Authoritative rules:** Where an external rule is required, use the authoritative source rather than relying on model memory or synthetic sample values.
-* **Evidence traceability:** Preserve the records used to support recovery decisions.
+| # | Scenario Challenge | Evidence Source | Assessment | Potential Claim | Verification |
+| :-: | :--- | :--- | :---: | :---: | :---: |
+| **1** | **Packaging defect fee ($38)** | Prep Manager recorded PASS with 3 photos before dispatch | `CONTRADICTED` | **$38.00** | ✅ PASS |
+| **2** | **Barcode label unscannable fee ($45)** | Dock receipt recorded, but prep barcode verification absent | `UNCERTAIN` | **$0.00** | ✅ PASS |
+| **3** | **Unplanned bubblewrap prep ($25)** | Zero operational records exist in system | `SILENT` | **$0.00** | ✅ PASS |
+| **4** | **Packaging defect ($30) + Weight variance ($50)** | Prep Manager PASS ($30) + Pack Manager calibrated scale ($50) | `CONTRADICTED` | **$80.00** | ✅ PASS |
+| **5** | **Weight surcharge ($65)** | Pack Manager DWS calibrated scale telemetry (14.2 lbs vs billed 28 lbs) | `CONTRADICTED` | **$65.00** | ✅ PASS |
+| **6** | **Damaged inventory fee ($110)** | Prep Manager says PASS, but Receiving Manager reports damaged arrival | `UNCERTAIN` | **$0.00** | ✅ PASS |
+| **7** | **Duplicate packaging fee ($20 x 2)** | Prep Manager evidence + duplicate billing detector | `DUPLICATE` | **$40.00** | ✅ PASS |
+| **8** | **Manual prep adjustment ($40)** | Cross-checked against reimbursement report credit `RMB-9910` | `ALREADY_REIMBURSED` | **$0.00** | ✅ PASS |
 
 ---
 
-## What we're being straight with you about
+## 🏛️ System Architecture Summary
 
-* **The core assumption is untested.** Nobody knows yet whether the evidence produced by automated upstream Managers will be reliable enough to support recovery claims at scale. Finding out that an assumption does not hold, and documenting that clearly, counts as a useful outcome.
-* **Nobody has spoken to a customer yet.** If you can get a real prep center or seller on a call, ask them to rank the five problems by urgency. Don't ask whether they'd buy what you're building.
-* **The background documents disagree in places.** A contradiction is a finding. Raise it as an Issue labelled `finding`.
-
----
-
-## Submission
-
-### Submissions open
-
-**27 September 2026**
-
-### Final deadline
-
-**1 October 2026 · 6:00 PM IST**
-
-The submission form closes permanently at the deadline.
-
-**There is no reopening and no resubmission.**
-
-Your final submission should include:
-
-* your GitHub fork,
-* working Recovery Manager,
-* `README.md`,
-* `ARCHITECTURE.md`,
-* evaluation results,
-* demo video,
-* deployment URL where applicable,
-* LinkedIn post URL.
-
-### LinkedIn — Mandatory
-
-Publish a LinkedIn post about your Round 2 build.
-
-The post must:
-
-* mention your Recovery Manager build,
-* explain what you built,
-* tag **CodeQuesters**,
-* tag **Sydon.AI**.
-
-Include the LinkedIn post URL in the submission form.
-
----
-
-## Commit rule
-
-All code commits forming your Round 2 submission must be made during the authorised build phase.
-
-Round 2 begins:
-
-**25 September 2026 · 9:00 AM IST**
-
-Once the build phase ends, do not continue making Round 2 code changes.
-
----
-
-## Round 2 → Round 3
-
-Round 2 is about your **individual Recovery Manager**.
-
-Participants selected for Round 3 will work in five-person Pods combining:
-
-```text
-Receiving Manager
-+
-Prep Manager
-+
-Pack Manager
-+
-Returns Manager
-+
-Recovery Manager
-```
-
-The objective is to integrate the five specialised agents into one connected end-to-end commerce system.
-
-Your Round 2 implementation should therefore have clear outputs, structured evidence and an understandable interface for downstream integration.
-
----
-
-*Cube Buildathon · Commerce Context*
+See [ARCHITECTURE.md](file:///d:/Kaufee/projects/CUBE/ARCHITECTURE.md) for full architectural documentation, component contracts, data flow diagrams, and design decisions.

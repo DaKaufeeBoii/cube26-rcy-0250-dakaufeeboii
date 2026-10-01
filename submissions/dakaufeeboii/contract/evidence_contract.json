@@ -1,0 +1,111 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CubeOperationalEvidenceContract",
+  "description": "Standard evidence record format ingested by Recovery Manager from Receiving, Prep, Pack, and Returns Managers.",
+  "type": "object",
+  "required": [
+    "evidence_id",
+    "manager",
+    "timestamp",
+    "activity",
+    "check_type",
+    "status"
+  ],
+  "properties": {
+    "evidence_id": {
+      "type": "string",
+      "description": "Unique identifier for this operational evidence event (e.g. EVD-101)"
+    },
+    "manager": {
+      "type": "string",
+      "enum": [
+        "Receiving Manager",
+        "Prep Manager",
+        "Pack Manager",
+        "Shipping Manager",
+        "Returns Manager"
+      ],
+      "description": "Originating autonomous station manager"
+    },
+    "org_id": {
+      "type": "string",
+      "description": "Multi-tenancy identifier (e.g. org_demo_alpha, org_demo_bravo)"
+    },
+    "unit_id": {
+      "type": "string",
+      "description": "Unique physical unit identifier (e.g. UNIT-0042)"
+    },
+    "shipment_id": {
+      "type": "string",
+      "description": "FBA or inbound shipment manifest identifier (e.g. SHP-10291)"
+    },
+    "order_id": {
+      "type": "string",
+      "description": "Customer order identifier if applicable"
+    },
+    "sku": {
+      "type": "string",
+      "description": "Merchant stock keeping unit"
+    },
+    "fnsku": {
+      "type": "string",
+      "description": "Fulfillment Network SKU"
+    },
+    "asin": {
+      "type": "string",
+      "description": "Amazon Standard Identification Number"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 UTC timestamp when verification occurred"
+    },
+    "activity": {
+      "type": "string",
+      "description": "Human-readable station activity (e.g. Packaging & Polybag Inspection, DWS Scale Scan)"
+    },
+    "check_type": {
+      "type": "string",
+      "enum": [
+        "packaging",
+        "labeling",
+        "weight",
+        "dimension",
+        "quantity",
+        "damage",
+        "return",
+        "general"
+      ],
+      "description": "Normalized category of operational check"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "PASS",
+        "FAIL",
+        "UNCERTAIN",
+        "PARTIAL",
+        "COMPLIANT",
+        "NON_COMPLIANT",
+        "INTACT",
+        "DAMAGED"
+      ],
+      "description": "Verdict recorded by station manager"
+    },
+    "details": {
+      "type": "object",
+      "description": "Key-value operational telemetry (e.g. certified weight, dimensions, seal test result)"
+    },
+    "media_references": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "URIs, hashes, or filenames of photographs, scan images, or certificates"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Operator comments or supervisor remarks"
+    }
+  }
+}

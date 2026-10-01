@@ -1,0 +1,316 @@
+{
+  "scenarios": {
+    "scenario_1_full_evidence": {
+      "name": "1. Correct Claim with Full Evidence",
+      "description": "Fee charged for packaging defect, but Prep Manager recorded verified PASS with photographs prior to dispatch.",
+      "charges": [
+        {
+          "charge_id": "48291",
+          "shipment_id": "SHP-10291",
+          "sku": "SKU-9281",
+          "fee_type": "Packaging defect",
+          "reason_description": "Box arrived with unsealed polybag and damaged exterior",
+          "amount": 38.00,
+          "charge_date": "2026-09-20"
+        }
+      ],
+      "operational_evidence": [
+        {
+          "evidence_id": "EVD-101",
+          "manager": "Prep Manager",
+          "shipment_id": "SHP-10291",
+          "sku": "SKU-9281",
+          "timestamp": "2026-09-02T14:22:00Z",
+          "activity": "Packaging Compliance Inspection",
+          "check_type": "packaging",
+          "status": "PASS",
+          "details": {
+            "polybag_thickness_mil": 1.5,
+            "suffocation_warning_present": true,
+            "tape_integrity": "100% sealed"
+          },
+          "media_references": ["photo_front_sealed.jpg", "photo_barcode.jpg", "photo_carton_seal.jpg"],
+          "notes": "All units inspected and certified compliant before palletization."
+        }
+      ],
+      "reimbursements": [],
+      "expected_assessment": "CONTRADICTED",
+      "expected_claim_amount": 38.00
+    },
+
+    "scenario_2_partial_evidence": {
+      "name": "2. Claim with Partial Evidence",
+      "description": "Fee charged for barcode labeling defect. Evidence exists for shipment dock arrival, but no prep barcode scannability check was recorded.",
+      "charges": [
+        {
+          "charge_id": "51002",
+          "shipment_id": "SHP-3021",
+          "sku": "SKU-4412",
+          "fee_type": "Barcode label unscannable",
+          "reason_description": "FNSKU barcode could not be read by automated scanner",
+          "amount": 45.00,
+          "charge_date": "2026-09-22"
+        }
+      ],
+      "operational_evidence": [
+        {
+          "evidence_id": "EVD-201",
+          "manager": "Receiving Manager",
+          "shipment_id": "SHP-3021",
+          "timestamp": "2026-09-05T09:10:00Z",
+          "activity": "Dock Inbound Log",
+          "check_type": "inbound_dock",
+          "status": "PASS",
+          "details": {
+            "pallets_received": 2
+          },
+          "media_references": [],
+          "notes": "Dock receipt acknowledged. Unit-level prep not documented."
+        }
+      ],
+      "reimbursements": [],
+      "expected_assessment": "UNCERTAIN",
+      "expected_claim_amount": 0.00
+    },
+
+    "scenario_3_no_evidence": {
+      "name": "3. Claim with No Evidence",
+      "description": "Fee charged for unplanned prep, but no operational records whatsoever exist in the system for this shipment.",
+      "charges": [
+        {
+          "charge_id": "60194",
+          "shipment_id": "SHP-9999",
+          "sku": "SKU-UNKNOWN",
+          "fee_type": "Unplanned bubblewrap prep",
+          "reason_description": "Fragile item arrived without required bubble protection",
+          "amount": 25.00,
+          "charge_date": "2026-09-24"
+        }
+      ],
+      "operational_evidence": [],
+      "reimbursements": [],
+      "expected_assessment": "SILENT",
+      "expected_claim_amount": 0.00
+    },
+
+    "scenario_4_multi_charge_same_shipment": {
+      "name": "4. Multiple Charges Same Shipment",
+      "description": "Two distinct fee charges assessed on the same shipment (Packaging Defect and Weight Discrepancy), evaluated independently.",
+      "charges": [
+        {
+          "charge_id": "7001",
+          "shipment_id": "SHP-5500",
+          "sku": "SKU-7721",
+          "fee_type": "Packaging defect",
+          "reason_description": "Polybag opened during handling",
+          "amount": 30.00,
+          "charge_date": "2026-09-25"
+        },
+        {
+          "charge_id": "7002",
+          "shipment_id": "SHP-5500",
+          "sku": "SKU-7721",
+          "fee_type": "Weight discrepancy fee",
+          "reason_description": "Reported weight 10 lbs vs billed 18 lbs",
+          "amount": 50.00,
+          "charge_date": "2026-09-25"
+        }
+      ],
+      "operational_evidence": [
+        {
+          "evidence_id": "EVD-401",
+          "manager": "Prep Manager",
+          "shipment_id": "SHP-5500",
+          "sku": "SKU-7721",
+          "timestamp": "2026-09-08T11:00:00Z",
+          "activity": "Bagging & Sealing Inspection",
+          "check_type": "packaging",
+          "status": "PASS",
+          "details": {"seal_test": "PASSED"},
+          "media_references": ["seal_check.png"]
+        },
+        {
+          "evidence_id": "EVD-402",
+          "manager": "Pack Manager",
+          "shipment_id": "SHP-5500",
+          "sku": "SKU-7721",
+          "timestamp": "2026-09-08T15:30:00Z",
+          "activity": "Conveyor Scale Check",
+          "check_type": "weight",
+          "status": "PASS",
+          "details": {"certified_scale_lbs": 10.2, "tolerance": "+/- 0.2 lbs"},
+          "media_references": ["scale_calibration_cert.pdf"]
+        }
+      ],
+      "reimbursements": [],
+      "expected_assessment": "CONTRADICTED",
+      "expected_claim_amount": 80.00
+    },
+
+    "scenario_5_cross_manager_evidence": {
+      "name": "5. Fee Matches Evidence from Different Manager",
+      "description": "Inbound weight surcharge matched against Pack Manager calibrated scale telemetry (cross-manager evidence retrieval).",
+      "charges": [
+        {
+          "charge_id": "88102",
+          "shipment_id": "SHP-7721",
+          "sku": "SKU-3329",
+          "fee_type": "Weight variance surcharge",
+          "reason_description": "Warehouse claimed carton was 28 lbs instead of declared 15 lbs",
+          "amount": 65.00,
+          "charge_date": "2026-09-26"
+        }
+      ],
+      "operational_evidence": [
+        {
+          "evidence_id": "EVD-501",
+          "manager": "Pack Manager",
+          "shipment_id": "SHP-7721",
+          "sku": "SKU-3329",
+          "timestamp": "2026-09-10T16:45:00Z",
+          "activity": "Automated Dimension & Weight Scan (DWS)",
+          "check_type": "weight",
+          "status": "PASS",
+          "details": {
+            "dws_actual_weight_lbs": 15.1,
+            "dws_dim_weight_lbs": 14.8,
+            "sensor_id": "PACK-DWS-04"
+          },
+          "media_references": ["dws_scan_telemetry.json"],
+          "notes": "DWS certified ISO 9001 scale scan completed prior to carrier manifest."
+        }
+      ],
+      "reimbursements": [],
+      "expected_assessment": "CONTRADICTED",
+      "expected_claim_amount": 65.00
+    },
+
+    "scenario_6_ambiguous_evidence": {
+      "name": "6. Ambiguous Evidence (Conflicting Manager Records)",
+      "description": "Fee charged for item damage. Prep Manager logs PASS before dispatch, but Inbound Receiving Manager logs damaged box arrival.",
+      "charges": [
+        {
+          "charge_id": "90412",
+          "shipment_id": "SHP-8830",
+          "sku": "SKU-1120",
+          "fee_type": "Damaged inventory processing fee",
+          "reason_description": "Carton arrived crushed with damaged interior products",
+          "amount": 110.00,
+          "charge_date": "2026-09-27"
+        }
+      ],
+      "operational_evidence": [
+        {
+          "evidence_id": "EVD-601",
+          "manager": "Prep Manager",
+          "shipment_id": "SHP-8830",
+          "sku": "SKU-1120",
+          "timestamp": "2026-09-12T10:00:00Z",
+          "activity": "Final Prep Inspection",
+          "check_type": "damage",
+          "status": "PASS",
+          "details": {"box_integrity": "Pristine"},
+          "media_references": ["prep_outbound.jpg"]
+        },
+        {
+          "evidence_id": "EVD-602",
+          "manager": "Receiving Manager",
+          "shipment_id": "SHP-8830",
+          "sku": "SKU-1120",
+          "timestamp": "2026-09-14T08:30:00Z",
+          "activity": "Carrier Inbound Receiving",
+          "check_type": "damage",
+          "status": "FAIL",
+          "details": {"box_integrity": "Corner crushed / tape torn by carrier"},
+          "media_references": ["dock_damaged_arrival.jpg"]
+        }
+      ],
+      "reimbursements": [],
+      "expected_assessment": "UNCERTAIN",
+      "expected_claim_amount": 0.00
+    },
+
+    "scenario_7_duplicate_charges": {
+      "name": "7. Duplicate Charges",
+      "description": "The exact same packaging defect fee is billed twice in the fee report for the same shipment.",
+      "charges": [
+        {
+          "charge_id": "40011",
+          "shipment_id": "SHP-4400",
+          "sku": "SKU-9921",
+          "fee_type": "Packaging defect",
+          "reason_description": "Defective packaging reported",
+          "amount": 20.00,
+          "charge_date": "2026-09-28"
+        },
+        {
+          "charge_id": "40012",
+          "shipment_id": "SHP-4400",
+          "sku": "SKU-9921",
+          "fee_type": "Packaging defect",
+          "reason_description": "Defective packaging reported (duplicate entry)",
+          "amount": 20.00,
+          "charge_date": "2026-09-28"
+        }
+      ],
+      "operational_evidence": [
+        {
+          "evidence_id": "EVD-701",
+          "manager": "Prep Manager",
+          "shipment_id": "SHP-4400",
+          "sku": "SKU-9921",
+          "timestamp": "2026-09-15T12:00:00Z",
+          "activity": "Prep Check",
+          "check_type": "packaging",
+          "status": "PASS",
+          "details": {"check": "Full pass"},
+          "media_references": ["prep_ok.jpg"]
+        }
+      ],
+      "reimbursements": [],
+      "expected_assessment": "DUPLICATE",
+      "expected_claim_amount": 40.00
+    },
+
+    "scenario_8_already_reimbursed": {
+      "name": "8. Already Reimbursed Charges",
+      "description": "Fee was charged, but reimbursement report confirms financial concession was already credited back.",
+      "charges": [
+        {
+          "charge_id": "33010",
+          "shipment_id": "SHP-1200",
+          "sku": "SKU-6601",
+          "fee_type": "Manual Prep Adjustment",
+          "reason_description": "Unplanned labeling adjustment fee",
+          "amount": 40.00,
+          "charge_date": "2026-09-29"
+        }
+      ],
+      "operational_evidence": [
+        {
+          "evidence_id": "EVD-801",
+          "manager": "Prep Manager",
+          "shipment_id": "SHP-1200",
+          "sku": "SKU-6601",
+          "timestamp": "2026-09-01T10:00:00Z",
+          "activity": "Label Application",
+          "check_type": "labeling",
+          "status": "PASS",
+          "details": {"barcode": "scanned 100%"}
+        }
+      ],
+      "reimbursements": [
+        {
+          "reimbursement_id": "RMB-9910",
+          "original_charge_id": "33010",
+          "shipment_id": "SHP-1200",
+          "amount_reimbursed": 40.00,
+          "date_processed": "2026-09-30",
+          "reason": "Customer Service Fee Concession"
+        }
+      ],
+      "expected_assessment": "ALREADY_REIMBURSED",
+      "expected_claim_amount": 0.00
+    }
+  }
+}

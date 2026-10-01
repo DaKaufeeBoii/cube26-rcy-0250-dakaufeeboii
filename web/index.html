@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recovery Manager — Autonomous AI Evidence-to-Recovery Agent</title>
+  <meta name="description" content="AI Recovery Manager: Matches ecommerce fees and chargebacks against cross-manager operational evidence with zero hallucination.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <!-- Background Glow & Mesh -->
+  <div class="glow-bg top-glow"></div>
+  <div class="glow-bg bottom-glow"></div>
+
+  <header class="app-header">
+    <div class="header-left">
+      <div class="brand-logo">
+        <div class="logo-cube">
+          <div class="cube-inner"></div>
+        </div>
+        <div class="brand-text">
+          <div class="brand-title">RECOVERY<span class="gradient-text">MANAGER</span></div>
+          <div class="brand-subtitle">CUBE Buildathon • Track #5 • Sydon.ai x Codequesters</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="header-center">
+      <div class="guardrail-badge">
+        <span class="pulse-dot"></span>
+        <span class="guardrail-text">Conservative Evidence Guardrail: <strong>ENFORCED</strong></span>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <div class="stat-pill">
+        <span class="pill-label">No-Hallucination:</span>
+        <span class="pill-val green">100% Strict</span>
+      </div>
+      <button id="btn-export-dossier" class="btn btn-secondary" title="Export complete audit dossier as Markdown">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        Export Dossier (.md)
+      </button>
+      <button id="btn-open-custom-modal" class="btn btn-primary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        Custom Ingestion
+      </button>
+    </div>
+  </header>
+
+  <main class="main-container">
+    <!-- Top Hero / Mode Selector -->
+    <section class="scenario-section">
+      <div class="section-header-row">
+        <div>
+          <h2 class="section-title">Test Scenarios Benchmark</h2>
+          <p class="section-desc">Select any of the 8 official CUBE buildathon test scenarios to execute live autonomous evidence-to-recovery matching.</p>
+        </div>
+        <div class="scenario-counter">
+          <span id="scenarios-loaded-badge">8 Canonical Scenarios</span>
+        </div>
+      </div>
+
+      <div class="scenarios-carousel" id="scenarios-grid">
+        <!-- Rendered dynamically by JS -->
+      </div>
+    </section>
+
+    <!-- Financial KPI Summary Cards -->
+    <section class="kpi-section">
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-title">Total Assessed Fees</span>
+          <span class="kpi-icon fee-icon">$</span>
+        </div>
+        <div class="kpi-value" id="kpi-total-fees">$0.00</div>
+        <div class="kpi-footer" id="kpi-charges-count">0 Charges Evaluated</div>
+      </div>
+
+      <div class="kpi-card highlight-card">
+        <div class="kpi-header">
+          <span class="kpi-title">Defensible Recovery Claims</span>
+          <span class="kpi-icon recovery-icon">🛡️</span>
+        </div>
+        <div class="kpi-value text-emerald" id="kpi-total-recovery">$0.00</div>
+        <div class="kpi-footer text-emerald-soft" id="kpi-recovery-rate">0.0% Recovery Rate</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-title">Legitimate (Supported) Fees</span>
+          <span class="kpi-icon supported-icon">✓</span>
+        </div>
+        <div class="kpi-value text-amber" id="kpi-total-supported">$0.00</div>
+        <div class="kpi-footer">Accepted without claim</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-title">Silent / Inconclusive</span>
+          <span class="kpi-icon silent-icon">ℹ</span>
+        </div>
+        <div class="kpi-value text-muted" id="kpi-total-silent">$0.00</div>
+        <div class="kpi-footer">Insufficient evidence (No guess)</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-header">
+          <span class="kpi-title">Already Reimbursed</span>
+          <span class="kpi-icon reimb-icon">↩</span>
+        </div>
+        <div class="kpi-value text-cyan" id="kpi-total-reimbursed">$0.00</div>
+        <div class="kpi-footer">Reconciled (No double claim)</div>
+      </div>
+    </section>
+
+    <!-- Active Scenario Description Banner -->
+    <section class="active-scenario-banner" id="active-scenario-banner">
+      <div class="active-scenario-left">
+        <span class="badge" id="active-scenario-badge">Scenario 1</span>
+        <h3 id="active-scenario-title" class="active-scenario-title">Correct Claim with Full Evidence</h3>
+        <p id="active-scenario-description" class="active-scenario-description">Loading scenario...</p>
+      </div>
+      <div class="active-scenario-right">
+        <button id="btn-re-run-analysis" class="btn btn-outline">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+          Re-Analyze
+        </button>
+      </div>
+    </section>
+
+    <!-- Main Workspace: Charges & Evidence Matrix -->
+    <section class="workspace-grid">
+      <!-- Left Column: Charges List & Classifications -->
+      <div class="panel charges-panel">
+        <div class="panel-header">
+          <div class="panel-title-group">
+            <h3 class="panel-title">Evaluated Fee Line Items</h3>
+            <span class="count-tag" id="charges-count-tag">1</span>
+          </div>
+          <div class="filter-tabs" id="filter-tabs">
+            <button class="filter-tab active" data-filter="all">All</button>
+            <button class="filter-tab" data-filter="actionable">Actionable Claims</button>
+            <button class="filter-tab" data-filter="silent">Silent / Inconclusive</button>
+            <button class="filter-tab" data-filter="supported">Supported</button>
+          </div>
+        </div>
+
+        <div class="charges-list" id="charges-list">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <!-- Right Column: Deep-Dive Audit & Evidence Traceability -->
+      <div class="panel details-panel">
+        <div class="panel-header">
+          <div class="panel-title-group">
+            <h3 class="panel-title">Evidence-to-Recovery Audit Trail</h3>
+            <span class="badge badge-subtle" id="selected-charge-badge">Select a charge</span>
+          </div>
+          <div class="action-buttons">
+            <button id="btn-copy-dispute-letter" class="btn btn-sm btn-accent" style="display:none;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+              Copy Dispute Letter
+            </button>
+          </div>
+        </div>
+
+        <div class="detail-content" id="detail-content">
+          <div class="empty-state">
+            <div class="empty-icon">🔍</div>
+            <h4>Select a Fee Charge</h4>
+            <p>Click any charge from the left panel to inspect cross-manager operational records, telemetry, and structured reasoning.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal for Custom Ingestion -->
+  <div class="modal-overlay" id="custom-modal" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Custom Ingestion & Multi-Manager Evidence</h3>
+        <button class="close-btn" id="close-custom-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-intro">Paste JSON or select sample templates for custom fee reports, operational evidence records, and reimbursement credits.</p>
+        <div class="tabs-row">
+          <button class="modal-tab active" data-pane="pane-charges">Fee Report (JSON)</button>
+          <button class="modal-tab" data-pane="pane-evidence">Operational Evidence (JSON)</button>
+          <button class="modal-tab" data-pane="pane-reimbursements">Reimbursements (JSON)</button>
+        </div>
+
+        <div class="tab-pane active" id="pane-charges">
+          <textarea id="input-custom-charges" placeholder='[{"charge_id": "9901", "shipment_id": "SHP-800", "fee_type": "Packaging defect", "amount": 35.00}]'></textarea>
+        </div>
+        <div class="tab-pane" id="pane-evidence" style="display: none;">
+          <textarea id="input-custom-evidence" placeholder='[{"evidence_id": "EV-1", "manager": "Prep Manager", "shipment_id": "SHP-800", "timestamp": "2026-09-01T10:00:00Z", "activity": "Inspection", "check_type": "packaging", "status": "PASS"}]'></textarea>
+        </div>
+        <div class="tab-pane" id="pane-reimbursements" style="display: none;">
+          <textarea id="input-custom-reimbursements" placeholder='[]'></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" id="btn-load-sample-custom">Load Complex Sample</button>
+        <button class="btn btn-primary" id="btn-submit-custom">Run Custom Recovery Engine</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast" id="toast"></div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
