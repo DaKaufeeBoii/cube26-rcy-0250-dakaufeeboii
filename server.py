@@ -6,23 +6,18 @@ and serves the rich web application interface.
 
 import json
 from pathlib import Path
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Callable
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 from recovery_manager import (
     RecoveryEngine,
     EvidenceStore,
-    AssessmentType,
-    ClaimStatus,
-    FeeCharge,
-    OperationalEvidence,
-    ReimbursementRecord,
-    RecoveryDossier,
-    handle_agent_request
+    handle_agent_request,
+    AssessmentType
 )
 from recovery_manager.parser import (
     parse_fee_charges_from_json,
@@ -31,24 +26,56 @@ from recovery_manager.parser import (
 )
 from recovery_manager.dossier import format_dossier_markdown, generate_formal_dispute_letter
 
-app = FastAPI(title="AI Recovery Manager API", version="1.0.0")
+STAGE = "recovery"
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+def make_app(stage: str, handle_func: Callable[[Dict[str, Any]], Dict[str, Any]]) -> FastAPI:
+    app = FastAPI(title=f"AI {stage.capitalize()} Manager API", version="1.0.0")
+    
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    @app.get("/health")
+    def health():
+        return {"status": "ok", "stage": stage}
+        
+    @app.get("/health")
+    def health_alias():
+        return {"status": "ok", "stage": stage}
+
+    @app.post("/run")
+    def run(request: Dict[str, Any]):
+        try:
+            return handle_func(request)
+        except LookupError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+
+    return app
+
+
+def handle(request: Dict[str, Any]) -> Dict[str, Any]:
+    """Round 3 agent interface: handle(request: dict) -> dict. Thin adapter around RecoveryEngine."""
+    sample_csv = Path(__file__).parent / "data" / "fee_report_sample.csv"
+    return handle_agent_request(request, sample_fee_csv_path=sample_csv)
+
+
+# Backwards-compat alias used by older tests/CLI
+def handle_request(request: Dict[str, Any]) -> Dict[str, Any]:
+    return handle(request)
+
+
+app = make_app(STAGE, handle)
 
 SCENARIOS_PATH = Path(__file__).parent / "data" / "scenarios" / "all_scenarios.json"
 WEB_DIR = Path(__file__).parent / "web"
 
-
 def load_all_scenarios() -> Dict[str, Any]:
     with open(SCENARIOS_PATH, "r", encoding="utf-8") as f:
         return json.load(f)["scenarios"]
-
 
 @app.get("/api/scenarios")
 def get_scenarios():
@@ -68,7 +95,6 @@ def get_scenarios():
         })
     return {"scenarios": scenarios_list}
 
-
 @app.get("/api/scenarios/{scenario_id}")
 def get_scenario_details(scenario_id: str):
     """Get full data for a specific scenario."""
@@ -76,7 +102,6 @@ def get_scenario_details(scenario_id: str):
     if scenario_id not in data:
         raise HTTPException(status_code=404, detail="Scenario not found")
     return {"scenario": data[scenario_id]}
-
 
 @app.post("/api/evaluate/scenario/{scenario_id}")
 def evaluate_scenario(scenario_id: str):
@@ -104,12 +129,22 @@ def evaluate_scenario(scenario_id: str):
         "markdown_report": format_dossier_markdown(dossier)
     }
 
-
 class CustomEvaluateRequest(BaseModel):
     charges: List[Dict[str, Any]]
     operational_evidence: Optional[List[Dict[str, Any]]] = None
     reimbursements: Optional[List[Dict[str, Any]]] = None
 
+
+@app.post("/api/agent/handle")
+def api_agent_handle(request: Dict[str, Any]):
+    """Legacy Evidence Contract endpoint (kept for backwards compat). Use POST /run for Round 3."""
+    try:
+        sample_csv = Path(__file__).parent / "data" / "fee_report_sample.csv"
+        return handle_agent_request(request, sample_fee_csv_path=sample_csv)
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/evaluate/custom")
 def evaluate_custom(request: CustomEvaluateRequest):
@@ -132,22 +167,6 @@ def evaluate_custom(request: CustomEvaluateRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-
-
-@app.post("/api/agent/handle")
-def api_agent_handle(request: Dict[str, Any]):
-    """
-    Evidence Contract v1.0 Agent Endpoint: Accepts AgentInput and returns AgentOutput.
-    Enforces multi-tenancy validation, deterministic evaluation, and fail-open resilience.
-    """
-    try:
-        sample_csv = Path(__file__).parent / "data" / "fee_report_sample.csv"
-        return handle_agent_request(request, sample_fee_csv_path=sample_csv)
-    except LookupError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
 
 @app.get("/api/dispute-letter/{scenario_id}/{charge_id}")
 def get_dispute_letter(scenario_id: str, charge_id: str):
@@ -175,11 +194,9 @@ def get_dispute_letter(scenario_id: str, charge_id: str):
 
     raise HTTPException(status_code=404, detail="Charge ID not found in scenario")
 
-
 # Mount static web directory
 if WEB_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(WEB_DIR)), name="static")
-
 
 @app.get("/", response_class=HTMLResponse)
 def serve_index():
@@ -188,7 +205,6 @@ def serve_index():
         return HTMLResponse(content=index_file.read_text(encoding="utf-8"))
     return HTMLResponse("<h1>Recovery Manager API is running. Web assets not found.</h1>")
 
-
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("server:app", host="127.0.0.1", port=8000, reload=True)
+    uvicorn.run(app, host="127.0.0.1", port=8000)

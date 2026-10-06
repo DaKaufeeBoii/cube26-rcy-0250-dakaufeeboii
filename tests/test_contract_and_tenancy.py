@@ -166,7 +166,9 @@ def test_evidence_contract_standard_execution():
 
     evidence = output["evidence"]
     assert evidence["schema_version"] == "1.0"
-    assert evidence["record_id"] == "RCY-UNIT-0014"
+    # Round 3 idempotency: record_id is deterministic from request_id/workflow_id/stage, not merely unit_id
+    assert evidence["record_id"].endswith("UNIT-0014")
+    assert evidence["record_id"].startswith("RCY-")
     assert evidence["decision"]["outcome"] == "claim_recommended"
     assert evidence["payload"]["claimable_usd"] == 38.00
 
