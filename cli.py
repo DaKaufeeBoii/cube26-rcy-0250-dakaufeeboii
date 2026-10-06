@@ -26,7 +26,8 @@ from recovery_manager import (
     RecoveryEngine,
     EvidenceStore,
     AssessmentType,
-    ClaimStatus
+    ClaimStatus,
+    handle_agent_request
 )
 from recovery_manager.parser import (
     parse_fee_charges_from_json,
@@ -192,6 +193,37 @@ def analyze_files(fees_path: str, evidence_path: Optional[str] = None, reimb_pat
         console.print(f"[bold green]Full dispute dossier exported to: {out_file.resolve()}[/bold green]")
 
 
+def execute_agent_request(input_path: str, output_path: Optional[str] = None):
+    """Execute standard Evidence Contract AgentInput file and print/save AgentOutput."""
+    in_file = Path(input_path)
+    if not in_file.exists():
+        console.print(f"[bold red]Error: Input request file '{input_path}' not found.[/bold red]")
+        sys.exit(1)
+
+    req_data = json.loads(in_file.read_text(encoding="utf-8"))
+    sample_csv = Path(__file__).parent / "data" / "fee_report_sample.csv"
+    output = handle_agent_request(req_data, sample_fee_csv_path=sample_csv)
+
+    console.print(Panel.fit(
+        f"[bold cyan]Agent Output — Evidence Contract Execution[/bold cyan]\n"
+        f"Stage: [yellow]{output.get('stage')}[/yellow] | Status: [green]{output.get('status')}[/green] | "
+        f"Verdict: [bold]{output.get('verdict')}[/bold] | Recommendation: {output.get('next_step_recommendation')}",
+        border_style="cyan"
+    ))
+
+    ev = output.get("evidence", {})
+    payload = ev.get("payload", {})
+    console.print(f"Content Hash: [dim]{ev.get('content_hash')}[/dim]")
+    console.print(f"Total Charges: {len(payload.get('charges', []))} | Claimable: [bold green]${payload.get('claimable_usd', 0.0):.2f}[/bold green]")
+
+    if output_path:
+        out_file = Path(output_path)
+        out_file.write_text(json.dumps(output, indent=2), encoding="utf-8")
+        console.print(f"[bold green]Saved AgentOutput to: {out_file.resolve()}[/bold green]")
+    else:
+        console.print_json(data=output)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Recovery Manager — AI Evidence-to-Recovery Agent")
     subparsers = parser.add_subparsers(dest="command")
@@ -206,12 +238,19 @@ def main():
     analyze_parser.add_argument("--reimbursements", help="Path to reimbursements file (JSON)")
     analyze_parser.add_argument("--output", help="Path to output markdown dispute dossier")
 
+    # handle-request (Contract execution)
+    handle_parser = subparsers.add_parser("handle-request", help="Execute standard Evidence Contract AgentInput")
+    handle_parser.add_argument("--input", required=True, help="Path to AgentInput JSON file")
+    handle_parser.add_argument("--output", help="Optional path to save AgentOutput JSON file")
+
     args = parser.parse_args()
 
     if args.command == "run-scenarios" or args.command is None:
         run_all_scenarios()
     elif args.command == "analyze":
         analyze_files(args.fees, args.evidence, args.reimbursements, args.output)
+    elif args.command == "handle-request":
+        execute_agent_request(args.input, args.output)
 
 
 if __name__ == "__main__":

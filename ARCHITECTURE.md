@@ -85,6 +85,13 @@ Encapsulates strongly-typed schemas using Pydantic v2:
 - Formats structured assessment results into audit-ready Markdown dossiers.
 - Generates platform-specific formal dispute letters tailored for Amazon Seller Support and carrier claims departments.
 
+### 2.6 Evidence Contract Adapter & Interoperability (`recovery_manager/contract.py`)
+- Implements the official CUBE Evidence Contract v1.0 standard `handle(request) -> AgentOutput`.
+- Ingests upstream `previous_evidence` (Receiving, Prep, Pack, Returns) conforming to standard evidence record schemas.
+- Computes canonical SHA-256 `content_hash` over immutable evidence keys.
+- Enforces strict multi-tenancy isolation via `org_id` validation.
+- Provides native fail-open fault handling: non-blocking pending review outputs on unhandled exceptions.
+
 ---
 
 ## 3. Data Flow
@@ -162,3 +169,21 @@ Unlike simple heuristic matching, the Recovery Manager uses a **structured deter
 ### 5.4 Multidimensional Indexing in Evidence Store
 - **Decision**: Maintained separate hash indices for shipments, orders, SKUs, and units.
 - **Rationale**: In real-world ecommerce, fee reports frequently omit shipment IDs (e.g., citing only an order ID or ASIN). Multi-key indexing guarantees evidence discovery across varying data fidelity.
+
+### 5.5 Multi-Tenancy Isolation Enforced at Store & Ingestion
+- **Decision**: Every model and query enforces strict `org_id` partition boundaries. Evidence belonging to one organization is never matched or cross-referenced against charges for another organization.
+- **Rationale**: Prevents accidental data leakage across client brands and multi-seller accounts. Missing or mismatched tenancy raises an immediate `LookupError`.
+
+### 5.6 Grounding Canonical Findings F-07, F-09, F-10, F-11
+- **F-07 (`fulfilment_fee_weight_tier`)**: Yields `SILENT` (insufficient evidence) unless explicit scale/dimension telemetry exists from Pack or Prep stations. Never asserts a weight claim without calibrated proof.
+- **F-09 & D-005 ($0.00 Adjustments)**: Non-claimable; marked `SILENT` as $0 claims are commercially meaningless and likely represent data omissions.
+- **F-10 (`lost_inbound`)**: Receiving shortfalls are supplier-side issues preceding channel custody. Marked `SILENT` to prevent frivolous platform claims without channel receipt proof.
+- **F-11 (`refund_issued_item_not_returned`)**: Disproven (`CONTRADICTED`) when Returns Manager inspection certifies that the correct physical unit was received intact.
+
+### 5.7 Fail-Open Resilience
+- **Decision**: Implemented fault-tolerant error wrapping returning standard `pending` AgentOutput envelopes with `agent_exception` codes instead of crashing.
+- **Rationale**: A warehouse pipeline must never crash or silently drop financial data due to transient record anomalies.
+
+### 5.8 Full Interoperability: REST API & CLI
+- **Decision**: Exposed the contract via `/api/agent/handle` (FastAPI) and `python cli.py handle-request --input <file.json>` (CLI).
+- **Rationale**: Enables seamless automated integration into orchestrator workflows while retaining rich browser and terminal visualization.

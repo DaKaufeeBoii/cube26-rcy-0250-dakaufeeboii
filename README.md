@@ -110,7 +110,19 @@ python cli.py analyze \
   --output dispute_dossier.md
 ```
 
-### 4. Run Automated Pytest Suite
+### 4. Execute Standard Evidence Contract Requests (v1.0)
+Execute any standard `agent-input` payload adhering to the CUBE Evidence Contract:
+```bash
+python cli.py handle-request --input request.json --output response.json
+```
+Or via HTTP REST:
+```bash
+curl -X POST http://127.0.0.1:8000/api/agent/handle \
+  -H "Content-Type: application/json" \
+  -d @request.json
+```
+
+### 5. Run Automated Pytest Suite
 ```bash
 python -m pytest tests/ -v
 ```

@@ -16,6 +16,7 @@ from .models import (
 )
 from .store import EvidenceStore
 from .engine import RecoveryEngine
+from .contract import handle_agent_request, compute_content_hash, canonical_json
 
 __all__ = [
     "ManagerType",
@@ -28,5 +29,8 @@ __all__ = [
     "RecoveryResult",
     "RecoveryDossier",
     "EvidenceStore",
-    "RecoveryEngine"
+    "RecoveryEngine",
+    "handle_agent_request",
+    "compute_content_hash",
+    "canonical_json"
 ]

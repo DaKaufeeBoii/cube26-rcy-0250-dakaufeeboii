@@ -29,17 +29,18 @@ def parse_fee_charges_from_json(json_data: Union[str, List[Dict[str, Any]], Dict
     charges = []
     for item in data:
         charge = FeeCharge(
-            charge_id=str(item.get("charge_id") or item.get("Charge ID") or item.get("id")),
-            shipment_id=item.get("shipment_id") or item.get("Shipment") or item.get("shipment"),
+            charge_id=str(item.get("charge_id") or item.get("Charge ID") or item.get("id") or item.get("line_id")),
+            org_id=item.get("org_id") or item.get("organization_id"),
+            shipment_id=item.get("shipment_id") or item.get("Shipment") or item.get("shipment") or item.get("fba_shipment_id"),
             order_id=item.get("order_id") or item.get("Order ID") or item.get("order"),
             sku=item.get("sku") or item.get("SKU") or item.get("asin") or item.get("ASIN"),
             unit_id=item.get("unit_id") or item.get("Unit"),
-            fee_type=item.get("fee_type") or item.get("Reason") or item.get("reason") or "Defect Fee",
+            fee_type=item.get("fee_type") or item.get("Reason") or item.get("reason") or item.get("charge_type") or "Defect Fee",
             reason_description=item.get("reason_description") or item.get("description") or item.get("notes"),
-            amount=float(item.get("amount") or item.get("Amount") or 0.0),
+            amount=float(item.get("amount") or item.get("Amount") or item.get("amount_usd") or 0.0),
             currency=item.get("currency") or "USD",
-            charge_date=item.get("charge_date") or item.get("date"),
-            source_report=item.get("source_report") or "Fee Report"
+            charge_date=item.get("charge_date") or item.get("date") or item.get("posted_date"),
+            source_report=item.get("source_report") or item.get("report_type") or "Fee Report"
         )
         charges.append(charge)
     return charges
@@ -69,13 +70,14 @@ def parse_reimbursements_from_json(json_data: Union[str, List[Dict[str, Any]], D
     for item in data:
         reimb = ReimbursementRecord(
             reimbursement_id=str(item.get("reimbursement_id") or item.get("Reimbursement ID") or item.get("id")),
-            original_charge_id=item.get("original_charge_id") or item.get("Charge ID"),
-            shipment_id=item.get("shipment_id") or item.get("Shipment"),
+            org_id=item.get("org_id") or item.get("organization_id"),
+            original_charge_id=item.get("original_charge_id") or item.get("Charge ID") or item.get("line_id"),
+            shipment_id=item.get("shipment_id") or item.get("Shipment") or item.get("fba_shipment_id"),
             order_id=item.get("order_id") or item.get("Order ID"),
             sku=item.get("sku") or item.get("SKU"),
-            amount_reimbursed=float(item.get("amount_reimbursed") or item.get("amount") or item.get("Amount") or 0.0),
+            amount_reimbursed=float(item.get("amount_reimbursed") or item.get("amount") or item.get("Amount") or item.get("amount_usd") or 0.0),
             currency=item.get("currency") or "USD",
-            date_processed=item.get("date_processed") or item.get("date"),
+            date_processed=item.get("date_processed") or item.get("date") or item.get("posted_date"),
             reason=item.get("reason") or item.get("Reason")
         )
         reimbursements.append(reimb)
@@ -84,15 +86,15 @@ def parse_reimbursements_from_json(json_data: Union[str, List[Dict[str, Any]], D
 
 def _map_manager_type(raw_manager: str) -> ManagerType:
     clean = (raw_manager or "").lower()
-    if "prep" in clean:
+    if "prep" in clean or clean.startswith("prp"):
         return ManagerType.PREP
-    if "pack" in clean:
+    if "pack" in clean or clean.startswith("pck"):
         return ManagerType.PACK
-    if "receiv" in clean or "inbound" in clean:
+    if "receiv" in clean or "inbound" in clean or clean.startswith("rcv"):
         return ManagerType.RECEIVING
     if "ship" in clean or "carrier" in clean:
         return ManagerType.SHIPPING
-    if "return" in clean:
+    if "return" in clean or clean.startswith("rtn"):
         return ManagerType.RETURNS
     if "bill" in clean or "platform" in clean:
         return ManagerType.PLATFORM_BILLING
@@ -116,28 +118,34 @@ def parse_operational_evidence_from_json(json_data: Union[str, List[Dict[str, An
 
     evidence_list = []
     for item in data:
-        manager_enum = _map_manager_type(item.get("manager") or item.get("Manager") or "")
+        raw_mgr = item.get("manager") or item.get("Manager") or item.get("stage") or item.get("agent_id") or ""
+        manager_enum = _map_manager_type(raw_mgr)
         
         # Parse media references if string or list
-        media = item.get("media_references") or item.get("Evidence") or item.get("photos") or []
+        media = item.get("media_references") or item.get("Evidence") or item.get("photos") or item.get("photo_refs") or []
         if isinstance(media, str):
-            media = [media]
+            media = [p.strip() for p in media.split(";") if p.strip()] if ";" in media else [media]
 
-        details = item.get("details") or {}
+        details = item.get("details") or item.get("measurements") or item.get("payload") or {}
         if not isinstance(details, dict):
             details = {"info": str(details)}
 
+        # Determine check_type and status
+        check_type = item.get("check_type") or item.get("Packaging Check") or item.get("Check") or "general"
+        status = str(item.get("status") or item.get("Packaging Check") or item.get("Result") or item.get("verdict") or "PASS")
+
         ev = OperationalEvidence(
-            evidence_id=str(item.get("evidence_id") or item.get("Evidence ID") or item.get("id")),
+            evidence_id=str(item.get("evidence_id") or item.get("Evidence ID") or item.get("id") or item.get("record_id")),
+            org_id=item.get("org_id") or item.get("organization_id"),
             manager=manager_enum,
-            shipment_id=item.get("shipment_id") or item.get("Shipment"),
+            shipment_id=item.get("shipment_id") or item.get("Shipment") or item.get("fba_shipment_id"),
             order_id=item.get("order_id") or item.get("Order ID"),
             sku=item.get("sku") or item.get("SKU") or item.get("Unit"),
             unit_id=item.get("unit_id") or item.get("Unit ID"),
-            timestamp=item.get("timestamp") or item.get("Captured") or item.get("date") or "2026-09-15T00:00:00Z",
-            activity=item.get("activity") or item.get("Action") or "Quality Inspection",
-            check_type=item.get("check_type") or item.get("Packaging Check") or item.get("Check") or "packaging",
-            status=str(item.get("status") or item.get("Packaging Check") or item.get("Result") or "PASS"),
+            timestamp=item.get("timestamp") or item.get("Captured") or item.get("date") or item.get("captured_at") or "2026-09-15T00:00:00Z",
+            activity=item.get("activity") or item.get("Action") or f"{manager_enum.value} Activity",
+            check_type=check_type,
+            status=status,
             details=details,
             media_references=media,
             notes=item.get("notes") or item.get("Notes")

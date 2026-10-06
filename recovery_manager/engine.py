@@ -60,8 +60,16 @@ FEE_CHECK_MAPPINGS = {
         "managers": [ManagerType.RECEIVING, ManagerType.RETURNS, ManagerType.PACK]
     },
     "return": {
-        "check_types": ["return_inspection", "disposition", "condition_grade", "customer_fault"],
+        "check_types": ["return_inspection", "disposition", "condition_grade", "customer_fault", "return"],
         "managers": [ManagerType.RETURNS, ManagerType.RECEIVING]
+    },
+    "defect": {
+        "check_types": ["packaging", "polybag", "labeling", "inbound_inspection", "box_condition", "prep_inspection", "inbound_integrity"],
+        "managers": [ManagerType.PREP, ManagerType.PACK, ManagerType.RECEIVING]
+    },
+    "lost": {
+        "check_types": ["unit_count", "manifest_reconciliation", "shortage_check", "inbound_integrity"],
+        "managers": [ManagerType.RECEIVING, ManagerType.PACK]
     }
 }
 
@@ -93,6 +101,23 @@ class RecoveryEngine:
 
         for charge in charges:
             total_fee += charge.amount
+
+            # D-005 / F-09: Zero-amount or non-positive charges are non-claimable
+            if charge.amount <= 0.00:
+                res = RecoveryResult(
+                    charge=charge,
+                    assessment=AssessmentType.SILENT,
+                    claim_status=ClaimStatus.NOT_SUPPORTED,
+                    potential_claim_amount=0.0,
+                    supporting_evidence=[],
+                    claim_rationale="SILENT — amount is 0.00: nothing to claim, or the amount is missing (finding F-09, decision D-005).",
+                    evidence_traceability=[],
+                    confidence=1.0,
+                    recommendation="Do not file claim: zero or non-positive dollar amount."
+                )
+                results.append(res)
+                total_silent += charge.amount
+                continue
             
             # Step 1-3: Identify identifiers and check duplicate charges in the same report
             # Signature: shipment_id + fee_type + amount
@@ -218,6 +243,44 @@ class RecoveryEngine:
         Evaluates contradiction vs support vs uncertainty.
         """
         fee_text = f"{charge.fee_type} {charge.reason_description or ''}".lower()
+
+        # Finding F-07: fulfilment_fee_weight_tier without measured scale telemetry
+        if "weight_tier" in fee_text or "weight tier" in fee_text:
+            has_weight_telemetry = any(
+                "weight" in ev.check_type.lower() or
+                "scale" in ev.activity.lower() or
+                "scale" in ev.check_type.lower() or
+                any(k in ev.details for k in ("weight_lbs", "measured_weight_lbs", "scale_weight_lbs", "dws_actual_weight_lbs", "scale_reading"))
+                for ev in evidence_list
+            )
+            if not has_weight_telemetry:
+                return RecoveryResult(
+                    charge=charge,
+                    assessment=AssessmentType.SILENT,
+                    claim_status=ClaimStatus.NOT_SUPPORTED,
+                    potential_claim_amount=0.0,
+                    supporting_evidence=[],
+                    claim_rationale="SILENT — no measured weight/dimensions upstream (finding F-07). Upstream stations did not capture calibrated scale telemetry, cannot dispute weight tier fee.",
+                    evidence_traceability=[],
+                    confidence=1.0,
+                    recommendation="Do not file claim: no certified upstream scale measurements."
+                )
+
+        # Finding F-10: lost_inbound where evidence only reflects supplier-side receiving shortfalls
+        if "lost_inbound" in fee_text or "lost inbound" in fee_text:
+            receiving_only = all(ev.manager == ManagerType.RECEIVING for ev in evidence_list)
+            if receiving_only:
+                return RecoveryResult(
+                    charge=charge,
+                    assessment=AssessmentType.SILENT,
+                    claim_status=ClaimStatus.NOT_SUPPORTED,
+                    potential_claim_amount=0.0,
+                    supporting_evidence=[],
+                    claim_rationale="SILENT — receiving shortfall is supplier-side, not channel-side loss (finding F-10). Shortage occurred prior to inbound channel custody transfer.",
+                    evidence_traceability=[f"{ev.manager.value} ({ev.evidence_id})" for ev in evidence_list],
+                    confidence=1.0,
+                    recommendation="Do not claim from channel; reconcile against supplier PO."
+                )
 
         # Identify fee intent
         target_check_types: Set[str] = set()

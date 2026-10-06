@@ -21,7 +21,8 @@ from recovery_manager import (
     FeeCharge,
     OperationalEvidence,
     ReimbursementRecord,
-    RecoveryDossier
+    RecoveryDossier,
+    handle_agent_request
 )
 from recovery_manager.parser import (
     parse_fee_charges_from_json,
@@ -131,6 +132,21 @@ def evaluate_custom(request: CustomEvaluateRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/agent/handle")
+def api_agent_handle(request: Dict[str, Any]):
+    """
+    Evidence Contract v1.0 Agent Endpoint: Accepts AgentInput and returns AgentOutput.
+    Enforces multi-tenancy validation, deterministic evaluation, and fail-open resilience.
+    """
+    try:
+        sample_csv = Path(__file__).parent / "data" / "fee_report_sample.csv"
+        return handle_agent_request(request, sample_fee_csv_path=sample_csv)
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/dispute-letter/{scenario_id}/{charge_id}")
