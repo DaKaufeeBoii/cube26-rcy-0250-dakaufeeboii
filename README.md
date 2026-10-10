@@ -160,4 +160,4 @@ python -m pytest tests/ -v
 
 ## 🏛️ System Architecture Summary
 
-See [ARCHITECTURE.md](file:///d:/Kaufee/projects/CUBE/ARCHITECTURE.md) for full architectural documentation, component contracts, data flow diagrams, and design decisions.
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for full architectural documentation, component contracts, data flow diagrams, and design decisions.
